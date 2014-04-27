@@ -375,8 +375,8 @@ def summary():
     print("======================================================")
     print("                  BGP Configuration                   ")
     print("======================================================")
-    print("Remote Tunnel IP: " + local_tunnel_ip)
-    print("Local Tunnel IP: " + remote_tunnel_ip)
+    print("Remote Tunnel IP: " + remote_tunnel_ip)
+    print("Local Tunnel IP: " + local_tunnel_ip)
     print("Peers ASN: " + str(peers_asn))
     print("Local ASN: " + str(local_asn) + "\n")
 
