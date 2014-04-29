@@ -459,13 +459,13 @@ region = str(os.popen("ec2-metadata -z | grep -Po '(us|sa|eu|ap)-(north|south)?(
 print("Finishing up...")
 
 # Security Group commands
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol blah --cidr-ip " + str(peer_public_ip) + "/32  --region " + region)
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol blah --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region)
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr-ip " + str(peer_public_ip) + "/32 --region " + region)
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr-ip " + str(peer_public_ip) + "/32 --region " + region).read()
 time.sleep(1)
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr-ip " + str(peer_public_ip) + "/32 --region " + region)
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr-ip " + str(peer_public_ip) + "/32 --region " + region).read()
 time.sleep(1)
 print("\n")
 
