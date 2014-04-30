@@ -382,7 +382,7 @@ def phase_two_prop():
             print("8) rijndael")
             print("9) null")
             enc_check_answer = raw_input("> ")
-            if enc_check_answer in list(string.ascii_lowercase):
+            if enc_check_answer in range(1,10):
                 enc_check_final_answer = {'1': 'aes128', '2': 'aes256', '3': 'des', '4': '3des', '5': 'cast',
                                           '6': 'blowfish', '7': 'twofish', '8': 'rijndael', '9': 'null'}
                 print(
@@ -427,8 +427,8 @@ def summary():
     print("======================================================")
     print("                  BGP Configuration                   ")
     print("======================================================")
-    print("Remote Tunnel IP: " + local_tunnel_ip)
-    print("Local Tunnel IP: " + remote_tunnel_ip)
+    print("Remote Tunnel IP: " + remote_tunnel_ip)
+    print("Local Tunnel IP: " + local_tunnel_ip)
     print("Peers ASN: " + str(peers_asn))
     print("Local ASN: " + str(local_asn) + "\n")
 
@@ -459,7 +459,7 @@ region = str(os.popen("ec2-metadata -z | grep -Po '(us|sa|eu|ap)-(north|south)?(
 print("Finishing up...")
 
 # Security Group commands
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol blah --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol blah --cidr-ip " + str(peer_public_ip) + "/32  --region " + region)
 time.sleep(1)
 os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
