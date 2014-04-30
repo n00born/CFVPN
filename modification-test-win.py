@@ -6,6 +6,7 @@ from numbers import Number
 import random
 import re
 import textwrap
+import os
 
 print("================================================================================")
 print(
@@ -22,8 +23,8 @@ print("=========================================================================
 def findandreplace(filename, replacement, template):
 
     #Open file, split into a list
-    file = open(filename, "r+")
-
+    file = open(filename, "w+")
+    file.truncate()
     for src, target in replacement.iteritems():
         template = template.replace(src, target)
     file.write(template)
@@ -138,6 +139,17 @@ sainfo address <LOCAL TUNNEL IP> any address <REMOTE TUNNEL IP> any {
 }
 """
 
+zebratemplate = """hostname ec2-zvpn
+password testPassword
+enable password testPassword
+!
+! list interfaces
+interface eth0
+interface lo
+!
+line vty
+"""
+
 encryption_algorithm = "aes128"
 hash_algorithm = "sha1"
 dh_group = "2"
@@ -161,7 +173,7 @@ findandreplace("./Modified/bgpd.txt", {"<LOCAL ASN>":local_asn, "<LOCAL PUBLIC I
 findandreplace("./Modified/ipsec-tools.txt", {"<LOCAL TUNNEL IP>":local_tunnel_ip, "<REMOTE TUNNEL IP>":remote_tunnel_ip, "<REMOTE SUB>":remote_sub, "<LOCAL SUB>":local_sub, "<LOCAL PRIVATE IP>":local_private_ip, "<PEER PUBLIC IP>":peer_public_ip}, ipsectemplate)
 findandreplace("./Modified/psk.txt", {"<PEER PUBLIC IP>":peer_public_ip, "<PSK>":psk}, psktemplate)
 findandreplace("./Modified/racoon.txt", {"<PEER PUBLIC IP>":peer_public_ip, "<LOCAL PUBLIC IP>":local_public_ip, "<ENCRYPTION ALGORITHM>":encryption_algorithm, "<HASH ALGORITHM>":hash_algorithm, "<DH GROUP>":dh_group, "<LOCAL TUNNEL IP>":local_tunnel_ip, "<REMOTE TUNNEL IP>":remote_tunnel_ip, "<PFS GROUP>":pfs_group, "<P2 LIFETIME>":p2_lifetime, "<P2 ENC ALG>":p2_enc_alg}, racoontemplate)
-
+findandreplace("./Modified/zebra.txt", {}, zebratemplate)
 
 print("\n")
 summary()
