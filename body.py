@@ -382,7 +382,7 @@ def phase_two_prop():
             print("8) rijndael")
             print("9) null")
             enc_check_answer = raw_input("> ")
-            if enc_check_answer in range(1,10):
+            if 0 < int(enc_check_answer) < 10:
                 enc_check_final_answer = {'1': 'aes128', '2': 'aes256', '3': 'des', '4': '3des', '5': 'cast',
                                           '6': 'blowfish', '7': 'twofish', '8': 'rijndael', '9': 'null'}
                 print(
