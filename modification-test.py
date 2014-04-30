@@ -82,9 +82,66 @@ neighbor <REMOTE TUNNEL IP> remote-as <REMOTE ASN>
 line vty
 """
 
+ipsectemplate = """#!/usr/sbin/setkey -f
+flush;
+spdflush;
+
+spdadd <LOCAL TUNNEL IP> <REMOTE TUNNEL IP> any -P out ipsec
+   esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
+
+spdadd <REMOTE TUNNEL IP> <LOCAL TUNNEL IP> any -P in ipsec
+   esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
+
+spdadd <LOCAL TUNNEL IP> <REMOTE SUB> any -P out ipsec
+   esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
+
+spdadd <REMOTE SUB> <LOCAL TUNNEL IP> any -P in ipsec
+   esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
+
+spdadd <LOCAL SUB> <REMOTE SUB> any -P out ipsec
+   esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
+
+spdadd <REMOTE SUB> <LOCAL SUB> any -P in ipsec
+   esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
+"""
+
+psktemplate = """# IPv4/v6 addresses
+
+<PEER PUBLIC IP>    <PSK>
+"""
+
+racoontemplate = """log notify;
+path pre_shared_key "/etc/racoon/psk.txt";
+path certificate "/etc/racoon/certs";
+
+remote <PEER PUBLIC IP> {
+        my_identifier address <LOCAL PUBLIC IP>;
+        exchange_mode main;
+        nat_traversal off;
+        lifetime time 28800 seconds;
+        generate_policy unique;
+        proposal {
+                encryption_algorithm <ENCRYPTION ALGORITHM>;
+                hash_algorithm <HASH ALGORITHM>;
+                authentication_method pre_shared_key;
+                dh_group <DH GROUP>;
+        }
+
+}
+
+sainfo address <LOCAL TUNNEL IP> any address <REMOTE TUNNEL IP> any {
+    pfs_group <PFS GROUP>;
+    lifetime time <P2 LIFETIME> seconds;
+    encryption_algorithm <P2 ENC ALG>;
+    authentication_algorithm hmac_sha1;
+    compression_algorithm deflate;
+}
+"""
+
 encryption_algorithm = "aes128"
 hash_algorithm = "sha1"
 dh_group = "2"
+local_private_ip = "10.0.0.167"
 local_public_ip = "54.186.139.150"
 peer_public_ip = "54.85.25.102"
 remote_tunnel_ip = "169.254.249.38/30"
@@ -101,13 +158,10 @@ p2_enc_alg = "aes128"
 
 
 findandreplace("./Modified/bgpd.txt", {"<LOCAL ASN>":local_asn, "<LOCAL PUBLIC IP>":local_public_ip, "<LOCAL TUNNEL IP>":local_tunnel_ip, "<LOCAL SUB>":local_sub, "<REMOTE TUNNEL IP>":remote_tunnel_ip.split("/", 1)[0], "<REMOTE ASN>":peers_asn}, bgpdtemplate)
+findandreplace("./Modified/ipsec-tools.txt", {"<LOCAL TUNNEL IP>":local_tunnel_ip, "<REMOTE TUNNEL IP>":remote_tunnel_ip, "<REMOTE SUB>":remote_sub, "<LOCAL SUB>":local_sub, "<LOCAL PRIVATE IP>":local_private_ip, "<PEER PUBLIC IP>":peer_public_ip}, ipsectemplate)
+findandreplace("./Modified/psk.txt", {"<PEER PUBLIC IP>":peer_public_ip, "<PSK>":psk}, psktemplate)
+findandreplace("./Modified/racoon.txt", {"<PEER PUBLIC IP>":peer_public_ip, "<LOCAL PUBLIC IP>":local_public_ip, "<ENCRYPTION ALGORITHM>":encryption_algorithm, "<HASH ALGORITHM>":hash_algorithm, "<DH GROUP>":dh_group, "<LOCAL TUNNEL IP>":local_tunnel_ip, "<REMOTE TUNNEL IP>":remote_tunnel_ip, "<PFS GROUP>":pfs_group, "<P2 LIFETIME>":p2_lifetime, "<P2 ENC ALG>":p2_enc_alg}, racoontemplate)
 
-"""
-findandreplace("./Modified/bgpd.txt", "<LOCAL TUNNEL IP>", local_tunnel_ip)
-findandreplace("./Modified/bgpd.txt", "<REMOTE TUNNEL IP>", remote_tunnel_ip)
-findandreplace("./Modified/bgpd.txt", "<REMOTE ASN>", peers_asn)
-findandreplace("./Modified/bgpd.txt", "<LOCAL SUB>", local_sub)
-"""
 
 print("\n")
 summary()
