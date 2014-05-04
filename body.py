@@ -220,6 +220,7 @@ def remote_subnet():
         check_remote()
     else:
         print("Invalid entry: Please try again")
+        remote_subnet()
 
 # Asks user if they want us to generate psk or if they want to use their own
 def preshared_keys():
@@ -403,7 +404,7 @@ def phase_two_prop():
 
 
 def summary():
-    print("Here is a summary of your configuration. This will be emailed to " + str(os.environ['EMAIL']) + "\n")
+    print("Here is a summary of your configuration. This has also been emailed to " + str(os.environ['EMAIL']) + "\n")
 
     print("======================================================")
     print("                  Phase 1 Proposal                    ")
@@ -433,6 +434,34 @@ def summary():
     print("Local ASN: " + str(local_asn) + "\n")
 
 
+def send_email():
+    os.system("echo ============================== >> message.json")
+    os.system("echo '                 Phase 1 Proposal ' >> message.json")
+    os.system("echo ============================== >> message.json")
+    os.system("echo Local Public IP: " + str(peer_public_ip) + " >> message.json")
+    os.system("echo Peer Public IP: " + str(os.popen("curl -s http://169.254.169.254/latest/meta-data/public-ipv4").read()) + " >> message.json")
+    os.system("echo 'Preshared Key: " + "\"" + str(
+        psk) + "\"" + "  <-- Please DO NOT include the end quotations in your preshared key' >> message.json")
+    os.system("echo Encryption: " + str(encryption_algorithm) + ", " + str(hash_algorithm) + ", " + "dhgroup " + str(
+            dh_group) + " >> message.json")
+    os.system("echo ============================== >> message.json")
+    os.system("echo '                 Phase 2 Proposal ' >> message.json")
+    os.system("echo ============================== >> message.json")
+    os.system("echo Local Private LAN: " + str(remote_sub) + " >> message.json")
+    os.system("echo Remote Private LAN: " + str(os.environ['LOCAL_LAN']) + " >> message.json")
+    os.system("echo Encryption: pfs group " + str(pfs_group) + ", " + str(p2_enc_alg) + " >> message.json")
+    os.system("echo SA lifetime: " + str(p2_lifetime) + " >> message.json")
+    os.system("echo ============================== >> message.json")
+    os.system("echo '                 BGP Configuration ' >> message.json")
+    os.system("echo ============================== >> message.json")
+    os.system("echo Remote Tunnel IP: " + local_tunnel_ip + " >> message.json")
+    os.system("echo Local Tunnel IP: " + remote_tunnel_ip + " >> message.json")
+    os.system("echo Peers ASN: " + str(local_asn) + " >> message.json")
+    os.system("echo Local ASN: " + str(peers_asn) + " >> message.json")
+    time.sleep(1)
+    os.system("aws sns publish --topic-arn $SNS --message file://message.json --region " + region)
+    os.system("rm -f message.json")
+
 
 peers_public()
 print("\n")
@@ -456,10 +485,10 @@ phase_two_prop()
 sg_id = str(os.environ['PUBLIC_SG'])
 region = str(os.popen("ec2-metadata -z | grep -Po '(us|sa|eu|ap)-(north|south)?(east|west)?-[0-9]+'").read())
 
-print("Finishing up...")
+print("\n\nFinishing up...")
 
 # Security Group commands
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol blah --cidr-ip " + str(peer_public_ip) + "/32  --region " + region)
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 51 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
 os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
@@ -473,6 +502,6 @@ print("\n")
 
 os.popen("sudo update-rc.d reboot_notify.py start 10 0 6 .")
 
-
+send_email()
+os.system("clear")
 summary()
-
