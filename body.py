@@ -404,7 +404,7 @@ def phase_two_prop():
 
 
 def summary():
-    print("Here is a summary of your configuration. This has also been emailed to " + str(os.environ['EMAIL']) + "\n")
+    print("Here is a summary of your configuration. This has also been emailed to " + str(os.environ['EMAIL']) )
 
     print("======================================================")
     print("                  Phase 1 Proposal                    ")
@@ -434,7 +434,7 @@ def summary():
     print("Local ASN: " + str(local_asn) + "\n")
 
 
-def send_email():
+def send_email(): # Sends an email with config parameters to the email that the customer specified
     os.system("echo ============================== >> message.json")
     os.system("echo '                 Phase 1 Proposal ' >> message.json")
     os.system("echo ============================== >> message.json")
@@ -459,8 +459,8 @@ def send_email():
     os.system("echo Peers ASN: " + str(local_asn) + " >> message.json")
     os.system("echo Local ASN: " + str(peers_asn) + " >> message.json")
     time.sleep(1)
-    os.system("aws sns publish --topic-arn $SNS --message file://message.json --region " + region)
-    os.system("rm -f message.json")
+    os.system("aws sns publish --topic-arn $SNS --message file://message.json --subject 'Connection config for " + str(os.popen("curl -s http://169.254.169.254/latest/meta-data/public-ipv4").read() + "' --region " + region))
+    os.system("rm message.json")
 
 
 peers_public()
@@ -488,13 +488,13 @@ region = str(os.popen("ec2-metadata -z | grep -Po '(us|sa|eu|ap)-(north|south)?(
 print("\n\nFinishing up...")
 
 # Security Group commands
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 51 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 51 --cidr " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr-ip " + str(peer_public_ip) + "/32  --region " + region).read()
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr " + str(peer_public_ip) + "/32  --region " + region).read()
 time.sleep(1)
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr-ip " + str(peer_public_ip) + "/32 --region " + region).read()
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr " + str(peer_public_ip) + "/32 --region " + region).read()
 time.sleep(1)
-os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr-ip " + str(peer_public_ip) + "/32 --region " + region).read()
+os.popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr " + str(peer_public_ip) + "/32 --region " + region).read()
 time.sleep(1)
 print("\n")
 
