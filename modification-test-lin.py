@@ -160,6 +160,8 @@ isisd=no
 babeld=no
 """
 
+
+
 encryption_algorithm = "aes128"
 hash_algorithm = "sha1"
 dh_group = "2"
@@ -178,6 +180,11 @@ pfs_group = "2"
 p2_lifetime = "3600"
 p2_enc_alg = "aes128"
 
+eth0template = """# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+        post-up ip a a """ + local_tunnel_ip + " dev eth0"
+
 #write files
 findandreplace("/etc/quagga/bgpd.conf", {"<LOCAL ASN>":local_asn, "<LOCAL PUBLIC IP>":local_public_ip, "<LOCAL TUNNEL IP>":local_tunnel_ip, "<LOCAL SUB>":local_sub, "<REMOTE TUNNEL IP>":remote_tunnel_ip.split("/", 1)[0], "<REMOTE ASN>":peers_asn}, bgpdtemplate)
 findandreplace("/etc/ipsec-tools.conf", {"<LOCAL TUNNEL IP>":local_tunnel_ip, "<REMOTE TUNNEL IP>":remote_tunnel_ip, "<REMOTE SUB>":remote_sub, "<LOCAL SUB>":local_sub, "<LOCAL PRIVATE IP>":local_private_ip, "<PEER PUBLIC IP>":peer_public_ip}, ipsectemplate)
@@ -185,6 +192,7 @@ findandreplace("/etc/racoon/psk.txt", {"<PEER PUBLIC IP>":peer_public_ip, "<PSK>
 findandreplace("/etc/racoon/racoon.conf", {"<PEER PUBLIC IP>":peer_public_ip, "<LOCAL PUBLIC IP>":local_public_ip, "<ENCRYPTION ALGORITHM>":encryption_algorithm, "<HASH ALGORITHM>":hash_algorithm, "<DH GROUP>":dh_group, "<LOCAL TUNNEL IP>":local_tunnel_ip, "<REMOTE TUNNEL IP>":remote_tunnel_ip, "<PFS GROUP>":pfs_group, "<P2 LIFETIME>":p2_lifetime, "<P2 ENC ALG>":p2_enc_alg}, racoontemplate)
 findandreplace("/etc/quagga/zebra.conf", {}, zebratemplate)
 findandreplace("/etc/quagga/daemons", {}, daemonstemplate)
+findandreplace("/etc/network/interfaces.d/eth0.cfg", {}, eth0template)
 
 #chmod for required files
 os.system("chmod 600 /etc/racoon/psk.txt")
