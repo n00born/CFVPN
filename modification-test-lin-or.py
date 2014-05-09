@@ -60,8 +60,6 @@ def summary():
     print("Peers ASN: " + str(peers_asn))
     print("Local ASN: " + str(local_asn) + "\n")
 
-
-
 bgpdtemplate = """
 hostname ec2-vpn
 password testPassword
@@ -162,31 +160,30 @@ isisd=no
 babeld=no
 """
 
+
+
+encryption_algorithm = "aes128"
+hash_algorithm = "sha1"
+dh_group = "2"
+local_private_ip = "10.0.0.167"
+local_public_ip = "54.186.139.150"
+peer_public_ip = "54.85.25.102"
+remote_tunnel_ip = "169.254.249.38/30"
+local_tunnel_ip = "169.254.249.37/30"
+local_sub = "10.0.0.0/24"
+remote_sub = "192.168.0.0/16"
+peers_asn = "65001"
+local_asn = "65000"
+psk = "testkey"
+dh_group = "2"
+pfs_group = "2"
+p2_lifetime = "3600"
+p2_enc_alg = "aes128"
+
 eth0template = """# The primary network interface
 auto eth0
 iface eth0 inet dhcp
         post-up ip a a """ + local_tunnel_ip + " dev eth0"
-
-
-#encryption_algorithm = "aes128"
-#hash_algorithm = "sha1"
-#dh_group = "2"
-#local_private_ip = str(os.popen("""/sbin/ifconfig eth0|grep inet|awk {'print $2'}|cut -d":" -f2""").read()).strip()
-#local_public_ip = "54.85.25.102"
-#peer_public_ip = "54.186.139.150"
-#remote_tunnel_ip = "169.254.249.37/30"
-#local_tunnel_ip = "169.254.249.38/30"
-#local_sub = "192.168.0.0/16"
-#remote_sub = "10.0.0.0/24"
-#peers_asn = "65000"
-#local_asn = "65001"
-#psk = "testkey"
-#dh_group = "2"
-#pfs_group = "2"
-#p2_lifetime = "3600"
-#p2_enc_alg = "aes128"
-
-
 
 #write files
 findandreplace("/etc/quagga/bgpd.conf", {"<LOCAL ASN>":local_asn, "<LOCAL PUBLIC IP>":local_public_ip, "<LOCAL TUNNEL IP>":local_tunnel_ip, "<LOCAL SUB>":local_sub, "<REMOTE TUNNEL IP>":remote_tunnel_ip.split("/", 1)[0], "<REMOTE ASN>":peers_asn}, bgpdtemplate)
@@ -201,18 +198,11 @@ findandreplace("/etc/network/interfaces.d/eth0.cfg", {}, eth0template)
 os.system("chmod 600 /etc/racoon/psk.txt")
 os.system("chmod 600 /etc/racoon/racoon.conf")
 
-#add ip address
-os.system("ip a a " + local_tunnel_ip + " dev eth0")
-
 #stop/start services
 os.system("service racoon stop")
-time.sleep(1)
 os.system("service quagga restart")
-time.sleep(2)
 os.system("service setkey restart")
-time.sleep(1)
 os.system("service racoon start")
-time.sleep(1)
 os.system("racoonctl vpn-connect " + peer_public_ip)
 
 print("\n")

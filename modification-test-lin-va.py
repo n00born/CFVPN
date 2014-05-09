@@ -168,23 +168,23 @@ iface eth0 inet dhcp
         post-up ip a a """ + local_tunnel_ip + " dev eth0"
 
 
-#encryption_algorithm = "aes128"
-#hash_algorithm = "sha1"
-#dh_group = "2"
-#local_private_ip = str(os.popen("""/sbin/ifconfig eth0|grep inet|awk {'print $2'}|cut -d":" -f2""").read()).strip()
-#local_public_ip = "54.85.25.102"
-#peer_public_ip = "54.186.139.150"
-#remote_tunnel_ip = "169.254.249.37/30"
-#local_tunnel_ip = "169.254.249.38/30"
-#local_sub = "192.168.0.0/16"
-#remote_sub = "10.0.0.0/24"
-#peers_asn = "65000"
-#local_asn = "65001"
-#psk = "testkey"
-#dh_group = "2"
-#pfs_group = "2"
-#p2_lifetime = "3600"
-#p2_enc_alg = "aes128"
+encryption_algorithm = "aes128"
+hash_algorithm = "sha1"
+dh_group = "2"
+local_private_ip = str(os.popen("""/sbin/ifconfig eth0|grep inet|awk {'print $2'}|cut -d":" -f2""").read()).strip()
+local_public_ip = "54.85.25.102"
+peer_public_ip = "54.186.139.150"
+remote_tunnel_ip = "169.254.249.37/30"
+local_tunnel_ip = "169.254.249.38/30"
+local_sub = "192.168.0.0/16"
+remote_sub = "10.0.0.0/24"
+peers_asn = "65000"
+local_asn = "65001"
+psk = "testkey"
+dh_group = "2"
+pfs_group = "2"
+p2_lifetime = "3600"
+p2_enc_alg = "aes128"
 
 
 
