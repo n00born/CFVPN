@@ -2,12 +2,18 @@
 
 import string
 import os
+import sys
 import random
 import re
 import textwrap
 import stat
 import time
 import subprocess
+
+#Check if sudo or not. Exits if not sudo.
+if os.geteuid() != 0:
+    print "--ERROR:\nPermission Denied, you must run this script as root.\n"
+    sys.exit(1)
 
 # Use pip to install AWS unified CLI
 print("Installing needed packages...")
@@ -17,7 +23,7 @@ os.system("wget http://s3.amazonaws.com/ec2metadata/ec2-metadata && mv ec2-metad
 os.chmod('/usr/bin/ec2-metadata', stat.S_IRWXU | stat.S_IRWXG | stat.S_IROTH | stat.S_IXOTH)
 os.system("clear")
 
-# This function will be used below to validate IPs (this may need some working on)
+# Validates IPs
 def ipFormatChk(ip_str):
     if len(ip_str.split()) == 1:
         ipList = ip_str.split('.')
@@ -38,7 +44,7 @@ def ipFormatChk(ip_str):
     else:
         return False
 
-# Function that asks user for the VPN peer's public IP
+# Asks user for the VPN peer's public IP
 def peers_public():
     global peer_public_ip
     print("\n" +
@@ -54,7 +60,7 @@ def peers_public():
         print("Invalid entry: Please enter the remote peer's public IP in a valid format")
         peers_public() # reruns the same function if invalid answer
 
-# This function will be used to ask user for tunnel IPs.
+# Asks user for tunnel IPs.
 def peer_tunnel():
     global remote_tunnel_ip
     global local_tunnel_ip
@@ -135,7 +141,7 @@ def peers_as():
         print("Invalid entry: Please enter an ASN between 0-65536")
         peers_as() # Reruns function if answer is invalid
 
-# This function asks user what ASN they want, and checks to make sure it is valid
+# Asks user what ASN they want, and checks to make sure it is valid
 def local_as():
     global local_asn
     print(
@@ -169,7 +175,7 @@ def local_as():
             textwrap.fill("Invalid ASN: Number must be between 0 - 65536, and make sure it is not the number already used by your peer", 80) )
         local_as() # Will rerun script if invalid entry
 
-# This function asks for the private subnet behind the peer VPN device. This is the LAN private IP range on the remote side.
+# Asks for the private subnet behind the peer VPN device. This is the LAN private IP range on the remote side.
 def remote_subnet():
     print(textwrap.fill("The REMOTE private network is currently specified as " + str(os.environ['REMOTE_LAN']) + ". Is this correct (choose y/N): ", 80))
     print("--------------------------------------------------------------------------------")
@@ -217,7 +223,7 @@ def preshared_keys():
         print("Error: Invalid choice")
         preshared_keys()
 
-# This asks user if they want us to auto-create phase 1 proposal/encryption parameters for them or if they want to manually do this
+# Asks user if they want us to auto-create phase 1 proposal/encryption parameters for them or if they want to manually do this
 def phase_one_prop():
     global encryption_algorithm
     global hash_algorithm
@@ -356,6 +362,7 @@ def phase_one_prop():
         print("Error: Invalid choice")
         phase_one_prop()
 
+# Prints summary output
 def summary():
     print("\n Here is a summary of your configuration. This has also been emailed to " + str(os.environ['EMAIL']) + "\n")
 
@@ -383,6 +390,7 @@ def summary():
     print("Peers ASN: " + peers_asn)
     print("Local ASN: " + local_asn + "\n")
 
+# Sends email via SNS
 def send_email(): # Sends an email with config parameters to the email that the customer specified
     os.system("echo ============================== >> message.json")
     os.system("echo '                 Phase 1 Proposal ' >> message.json")
@@ -410,6 +418,7 @@ def send_email(): # Sends an email with config parameters to the email that the 
     os.system("aws sns publish --topic-arn $SNS --message file://message.json --subject 'Connection config for " + str(os.popen("curl -s http://169.254.169.254/latest/meta-data/public-ipv4").read() + "' --region " + region))
     os.system("rm message.json")
 
+#Creates template files
 def templatecreate():
     global daemonstemplate
     global bgpdtemplate
@@ -541,6 +550,7 @@ isisd=no
 babeld=no
     """
 
+#Modifies sytem files and permissions
 def modifysysfiles():
     #Used to open and write files
     def findandreplace(filename, replacement, template):
@@ -610,6 +620,7 @@ subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id 
 subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr " + str(peer_public_ip) + "/32 --region " + region, shell=True, stdout=subprocess.PIPE,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
 subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr " + str(peer_public_ip) + "/32 --region " + region, shell=True, stdout=subprocess.PIPE,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
 
+#Sends email
 send_email()
 os.system("clear")
 
@@ -618,7 +629,11 @@ local_tunnel_ip = local_tunnel_ip + "/30"
 remote_tunnel_ip = remote_tunnel_ip + "/30"
 
 #Modifies system files
-modifysysfiles()
+try:
+    modifysysfiles()
+except:
+    print "--ERROR:\nFailed to modify files and permissions, please make sure you are running this script as root.\n"
+    sys.exit(1)
 
 #stop/start required services
 os.system("service racoon stop")
