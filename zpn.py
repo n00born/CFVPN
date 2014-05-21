@@ -648,5 +648,5 @@ os.system("racoonctl vpn-connect " + peer_public_ip)
 
 #Summarize Changes
 summary()
-#asdf 
+#asdf
 #blah blah blah
