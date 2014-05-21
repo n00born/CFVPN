@@ -646,6 +646,5 @@ os.system("service racoon start")
 time.sleep(1)
 os.system("racoonctl vpn-connect " + peer_public_ip)
 
-#Summarize Changes
+#Summarize
 summary()
-#asdf
