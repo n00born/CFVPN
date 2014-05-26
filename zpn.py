@@ -15,6 +15,19 @@ if os.geteuid() != 0:
     print "--ERROR:\nPermission Denied, you must run this script as root.\n"
     sys.exit(1)
 
+# Have user confirm SNS subscription
+def subscription():
+    print("\n" + textwrap.fill("Before we get started you will want to make sure that you have confirmed the SNS topic subscription sent to the email address " + os.environ['EMAIL'] + ". This is where the final VPN config will be sent to. Please hit 'ENTER' to continue after confirming subscription in your inbox.", 80))
+    print("--------------------------------------------------------------------------------")
+    answer = raw_input("> ")
+    if answer == '':
+        os.system('clear')
+    else:
+        print("\n"+ "Please hit enter to continue...")
+        subscription()
+
+
+
 # Use pip to install AWS unified CLI
 print("Installing needed packages...")
 os.system("pip install awscli")
@@ -607,6 +620,8 @@ print(
 print("================================================================================")
 
 #Calling functions
+print("\n")
+subscription()
 peers_public()
 print("\n")
 peer_tunnel()
