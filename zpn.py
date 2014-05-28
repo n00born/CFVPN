@@ -252,7 +252,7 @@ def phase_one_prop():
     print("2) manually select encryption parameters (advanced)")
     phase_1_choice = raw_input("> ")
     if phase_1_choice == '1': # Selecting auto will let us set the parameters for them
-        encryption_algorithm = "aes256"
+        encryption_algorithm = "aes128"
         hash_algorithm = "sha1"
         dh_group = "2"
         pfs_group = '2'
