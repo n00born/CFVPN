@@ -10,10 +10,43 @@ import stat
 import time
 import subprocess
 
+#Initial arguement check
+helptext = "usage: zpn.py [option] \n" \
+           "-h     : Help. Shows this text.\n" \
+           "-v     : Verbose. Gives verbose text on execution of the script.\n\n" \
+           "If you have any questions or concerns please contact bfowler@ or nicklewi@" \
+           "This is a beta script and is intended to configure an instance launched with the CloudFort Cloud Formation template in an AWS environment." \
+           "This will help configure multiple linux and AWS elements to establish a VPN connection remotely.\n"
+numparam = len(sys.argv)
+verbose = 0
+
+if numparam != 1:
+        if numparam > 2:
+                print helptext
+                sys.exit()
+        if sys.argv[1] == '-h':
+                print helptext
+                sys.exit()
+        if sys.argv[1] == '-v':
+                verbose = 1
+
 #Check if sudo or not. Exits if not sudo.
 if os.geteuid() != 0:
     print "--ERROR:\nPermission Denied, you must run this script as root.\n"
     sys.exit(1)
+
+# Have user confirm SNS subscription
+def subscription():
+    print("\n" + textwrap.fill("Before we get started you will want to make sure that you have confirmed the SNS topic subscription sent to the email address " + os.environ['EMAIL'] + ". This is where the final VPN config will be sent to. Please hit 'ENTER' to continue after confirming subscription in your inbox.", 80))
+    print("--------------------------------------------------------------------------------")
+    answer = raw_input("> ")
+    if answer == '':
+        os.system('clear')
+    else:
+        print("\n"+ "Please hit enter to continue...")
+        subscription()
+
+
 
 # Use pip to install AWS unified CLI
 print("Installing needed packages...")
@@ -22,6 +55,13 @@ print("\n")
 os.system("wget http://s3.amazonaws.com/ec2metadata/ec2-metadata && mv ec2-metadata /usr/bin")
 os.chmod('/usr/bin/ec2-metadata', stat.S_IRWXU | stat.S_IRWXG | stat.S_IROTH | stat.S_IXOTH)
 os.system("clear")
+
+#Verbose vs not
+def clioutput(command):
+    if verbose == 1:
+        os.system(command)
+    else:
+        subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
 # Validates IPs
 def ipFormatChk(ip_str):
@@ -57,7 +97,7 @@ def peers_public():
         assert isinstance(peer_public_ip, object)
         return peer_public_ip
     else:
-        print("Invalid entry: Please enter the remote peer's public IP in a valid format")
+        print("\n" + "Invalid entry: Please enter the remote peer's public IP in a valid format")
         peers_public() # reruns the same function if invalid answer
 
 # Asks user for tunnel IPs.
@@ -65,16 +105,16 @@ def peer_tunnel():
     global remote_tunnel_ip
     global local_tunnel_ip
     print(
-        "\n" + textwrap.fill("Do you want ZPN to automatically generate the tunnel IPs for your connection (recommended), or do you want to do this manually? Please select option 1 or 2:", 80))
+        "\n" + textwrap.fill("Do you want Cloudfort to automatically generate the tunnel IPs for your connection (recommended), or do you want to do this manually? Please select option 1 or 2:", 80))
     print("--------------------------------------------------------------------------------")
-    print("1) Let ZPN generate tunnel IPs for this connection")
-    print("2) I want to set my own tunnel IPs for both sides of the connection (IPs must be within 169.254.X.x range)")
+    print("1) Let CloudFort generate tunnel IPs for this connection")
+    print("2) I want to set my own tunnel IPs for both sides of the connection")
     tunnel_ip_answer = raw_input("> ")
     if tunnel_ip_answer == '2':
         def remote_ip():
             global remote_tunnel_ip
             print(
-                "\n" + textwrap.fill("What tunnel IP will the REMOTE peer be using? (remember that it must be in the 169.254.x.x range):",80))
+                "\n" + textwrap.fill("What tunnel IP will the REMOTE peer be using? Again, You will want to pick something in same 169.254.X.X/30 range as the LOCAL side.",80))
             print("--------------------------------------------------------------------------------")
             tunnel_ip = raw_input("> ")
 
@@ -85,18 +125,19 @@ def peer_tunnel():
 
             if ipFormatChk(tunnel_ip) and 254 >= int(extractIP(tunnel_ip)[3]) > 0 and int(
                     extractIP(tunnel_ip)[0]) == 169 and int(
-                    extractIP(tunnel_ip)[1]) == 254 and 255 >= int(extractIP(tunnel_ip)[2]) > 0:
+                    extractIP(tunnel_ip)[1]) == 254 and 255 >= int(extractIP(tunnel_ip)[2]) > 0 and int(
+                    extractIP(tunnel_ip)[3]) != int(extractIP(local_tunnel_ip)[3]):
                 print(str(tunnel_ip) + " will be used for the remote tunnel IP...")
                 remote_tunnel_ip = tunnel_ip
 
             else:
-                print("Invalid entry")
+                print("\n" + textwrap.fill("Invalid entry: Please be sure the IP is valid, does not include the /30 at the end, and is not the same as the REMOTE IP", 80))
                 remote_ip()
 
         def local_ip():
             global local_tunnel_ip
             print(
-                "\n" + textwrap.fill("What tunnel IP do you want to use for the LOCAL side of this connection (remember it must be 169.254.251.x)", 80))
+                "\n" + textwrap.fill("What tunnel IP do you want to use for the LOCAL side of this connection. (It must be 169.254.X.X/30 range. So for example you could assign the LOCAL side '169.254.251.18' and assign the REMOTE side '169.254.251.17')", 80))
             print("--------------------------------------------------------------------------------")
             tunnel_ip = raw_input("> ")
 
@@ -107,56 +148,56 @@ def peer_tunnel():
 
             if ipFormatChk(tunnel_ip) and 254 >= int(extractIP(tunnel_ip)[3]) > 0 and int(
                     extractIP(tunnel_ip)[0]) == 169 and int(extractIP(tunnel_ip)[1]) == 254 and 255 >= int(
-                    extractIP(tunnel_ip)[2]) > 0 and int(extractIP(tunnel_ip)[3]) != int(extractIP(remote_tunnel_ip)[3]):
+                    extractIP(tunnel_ip)[2]) > 0:
                 print(str(tunnel_ip) + " will be used for the LOCAL tunnel IP...")
                 local_tunnel_ip = tunnel_ip
             else:
-                print("Invalid entry: Please be sure the IP is valid and not the same as the remote IP")
+                print("\n" + "Invalid entry: Please be sure the IP is valid and does not include the /30 at the end")
                 local_ip()
-        remote_ip()
+
         local_ip()
+        remote_ip()
+
     elif tunnel_ip_answer == '1' : # If user chooses '1' then a random IP is generated
         global remote_tunnel_ip
         global local_tunnel_ip
-        final_peer = ["169.254.251", str(random.randint(1, 254))]
-        remote_tunnel_ip = ".".join(final_peer)
+        remote_tunnel_ip = '169.254.251.1'
         print(remote_tunnel_ip + " will be used for the remote tunnel IP of this connection...")
-        final = ["169.254.251", str(random.randint(1, 254))]
-        local_tunnel_ip = ".".join(final)
-        print(local_tunnel_ip + " will be used for the remote tunnel IP of this connection...")
+        local_tunnel_ip = '169.254.251.2'
+        print(local_tunnel_ip + " will be used for the local tunnel IP of this connection...")
     else:
-        print("Invalid entry")
+        print("\n" + "Invalid entry")
         peer_tunnel()
 
 # Asks user for peer BGP ASN
 def peers_as():
     global peers_asn
-    print("Enter the BGP ASN of the REMOTE peer you are connecting to (ex.'65030'):")
+    print("\n" + "Enter the BGP ASN of the REMOTE peer you are connecting to (ex.'65030'):")
     print("--------------------------------------------------------------------------------")
     peer = raw_input("> ")
-    if 65536 >= int(peer) >= 0: # Verifies that the ASN is between 0 - 65536 (valid)
+    if 65536 >= int(peer) >= 0 and peer != local_asn: # Verifies that the ASN is between 0 - 65536 (valid)
         print(peer + " will be used for the REMOTE peer's ASN...")
         peers_asn = str(peer)
     else:
-        print("Invalid entry: Please enter an ASN between 0-65536")
+        print("\n" + textwrap.fill("Invalid entry: Please enter an ASN between 0-65536, and make sure it is not the same as your LOCAL ASN", 80))
         peers_as() # Reruns function if answer is invalid
 
 # Asks user what ASN they want, and checks to make sure it is valid
 def local_as():
     global local_asn
-    print(
+    print("\n" +
         textwrap.fill("Enter the BGP ASN of this LOCAL server.(NOTE: you must choose something between 64512 - 65536. Anything less than 64512 should be publicly registered to you):", 80))
     print("--------------------------------------------------------------------------------")
     local = raw_input("> ")
     if 64512 <= int(
-            local) <= 65536 and local != peers_asn: # Checking to make sure ASN selected is above 65000 (so that it is not a registered ASN)
+            local) <= 65536: # Checking to make sure ASN selected is above 65000 (so that it is not a registered ASN)
         print(local + " will be used for the LOCAL ASN...")
         local_asn = local
     elif 0 <= int(
-            local) < 64512 and local != peers_asn: # If selection is 'registered' the subsequent script will ask them to verify that they want to continue
+            local) < 64512: # If selection is 'registered' the subsequent script will ask them to verify that they want to continue
         def registered_asn():
             global local_asn
-            print(
+            print("\n" +
                 textwrap.fill("Again, keep in mind that " + local + " is a publicly registered number, and it may cause your VPN connection not to work unless you actually own the ASN. Are you certain you want to proceed (choose y/N)?", 80))
             print("--------------------------------------------------------------------------------")
             answer = raw_input("> ")
@@ -166,13 +207,13 @@ def local_as():
             elif answer.lower() == 'no' or answer.lower() == 'n':
                 local_as()
             else:
-                print("Please enter a valid answer 'yes' or 'no':")
+                print("\n" + "Please enter a valid answer 'yes' or 'no':")
                 registered_asn()
 
         registered_asn()
     else:
-        print(
-            textwrap.fill("Invalid ASN: Number must be between 0 - 65536, and make sure it is not the number already used by your peer", 80) )
+        print("\n" +
+            textwrap.fill("Invalid ASN: Number must be between 0 - 65536", 80) )
         local_as() # Will rerun script if invalid entry
 
 # Asks for the private subnet behind the peer VPN device. This is the LAN private IP range on the remote side.
@@ -205,22 +246,22 @@ def remote_subnet():
 # Asks user if they want us to generate psk or if they want to use their own
 def preshared_keys():
     global psk
-    print("Do you want ZPN to generate a random preshared key for you (choose y/N):")
+    print("\n" + "Do you want CloudFort to generate a random preshared key for you (choose y/N):")
     print("--------------------------------------------------------------------------------")
     preshared = raw_input("> ")
     if preshared.lower() == 'y' or preshared.lower() == 'yes':
         myrg = random.SystemRandom()
         alphabet = string.ascii_letters + string.digits + string.punctuation
         psk = str().join(myrg.choice(alphabet) for _ in range(20)) # algorithm used to generate psk
-        print("\n" + "  " + str(psk) + "   <----- will be used the preshared key for this connection")
+        print("\n" + " " + str(psk) + " <----- will be used the preshared key for this connection")
     elif preshared.lower() == 'n' or preshared.lower() == 'no':
-        print(
+        print("\n" +
             textwrap.fill("Please enter the preshared key you want to use (make sure there are no leading or trailing spaces. You certainly want to use a mix of uppercase, lowercase, digits, and special characters - a preshared key length of 20 characters is recommended !):", 80))
         print("--------------------------------------------------------------------------------")
         psk = str(raw_input("> "))
-        print("\n" + "  " + str(psk) + "    <----- will be used the preshared key for this connection")
+        print("\n" + " " + str(psk) + " <----- will be used the preshared key for this connection")
     else:
-        print("Error: Invalid choice")
+        print("\n" + "Error: Invalid choice")
         preshared_keys()
 
 # Asks user if they want us to auto-create phase 1 proposal/encryption parameters for them or if they want to manually do this
@@ -231,14 +272,14 @@ def phase_one_prop():
     global pfs_group
     global p2_lifetime
     global p2_enc_alg
-    print (
-        textwrap.fill("Now it's time to specify the parameters for the VPN's phase 1 & 2 proposals. Would you like ZPN to automatically create the proposal specifications (recommended), or you do you want to manually enter these (advanced)? Please select 1 or 2: ",80))
+    print ("\n" +
+        textwrap.fill("Now it's time to specify the parameters for the VPN's phase 1 & 2 proposals. Would you like CloudFort to automatically create the proposal specifications (recommended), or you do you want to manually enter these (advanced)? Please select 1 or 2: ",80))
     print("--------------------------------------------------------------------------------")
     print("1) automatically select encryption parameters (recommended)")
     print("2) manually select encryption parameters (advanced)")
     phase_1_choice = raw_input("> ")
     if phase_1_choice == '1': # Selecting auto will let us set the parameters for them
-        encryption_algorithm = "aes256"
+        encryption_algorithm = "aes128"
         hash_algorithm = "sha1"
         dh_group = "2"
         pfs_group = '2'
@@ -263,7 +304,7 @@ def phase_one_prop():
                 print( str(p1_dictionary[encrypt_alg]) + " will be used for phase 1 encryption algorithm...")
                 encryption_algorithm = str(p1_dictionary[encrypt_alg])
             else:
-                print("Error: Invalid choice")
+                print("\n" + "Error: Invalid choice")
                 p1_alg_question()
 
         def p1_hash_question():
@@ -278,12 +319,12 @@ def phase_one_prop():
                 print(p1_hash_dict[hash_alg] + " will be used for phase 1 hash algorithm...")
                 hash_algorithm = str(p1_hash_dict[hash_alg])
             else:
-                print("Error: Invalid choice")
+                print("\n" + "Error: Invalid choice")
                 p1_hash_question()
 
         def p1_dh_group():
             global dh_group
-            print("\n" + "Please enter the DH group number for phase 1/IKE of this connection (choose option  1 - 3): ")
+            print("\n" + "Please enter the DH group number for phase 1/IKE of this connection (choose option 1 - 3): ")
             print("--------------------------------------------------------------------------------")
             print("1) DH group 1")
             print("2) DH group 2")
@@ -294,7 +335,7 @@ def phase_one_prop():
                 print("dhgroup " + dh_selection[dh_group_choice] + " will be used for the DH group...")
                 dh_group = str(dh_selection[dh_group_choice])
             else:
-                print("Error: Invalid choice")
+                print("\n" + "Error: Invalid choice")
                 p1_dh_group()
 
         def pfs_checker():
@@ -310,7 +351,7 @@ def phase_one_prop():
                 print("PFS dhgroup " + p2_final_answer[phase2_question] + " is selected...")
                 pfs_group = str(p2_final_answer[phase2_question])
             else:
-                print("Invalid entry: Please try again")
+                print("\n" + "Invalid entry: Please try again")
                 pfs_checker()
 
         def p2_lifetime_checker():
@@ -323,7 +364,7 @@ def phase_one_prop():
                 print(lifetime + " will be used for phase 2 lifetime...")
                 p2_lifetime = str(lifetime)
             else:
-                print("Invalid Entry: Please enter a numeric value for the lifetime...")
+                print("\n" + "Invalid Entry: Please enter a numeric value for the lifetime...")
                 p2_lifetime_checker()
 
         def p2_enc_checker():
@@ -348,7 +389,7 @@ def phase_one_prop():
                         enc_check_answer] + " will be used for the encryption algorithm of phase 2...")
                 p2_enc_alg = str(enc_check_final_answer[enc_check_answer])
             else:
-                print("Invalid entry: Please try again")
+                print("\n" + "Invalid entry: Please try again")
                 p2_enc_checker()
 
 
@@ -359,23 +400,34 @@ def phase_one_prop():
         p2_lifetime_checker()
         p2_enc_checker()
     else:
-        print("Error: Invalid choice")
+        print("\n" + "Error: Invalid choice")
         phase_one_prop()
+
+def nat(): # Asks if they want to turn server into NAT server as well
+    print("\n" + textwrap.fill("Would you like for CloudFort to turn this server into a NAT server for your private EC2 instances as well (Y/n)? ", 80))
+    nat_answer = raw_input("> ")
+    if nat_answer.lower() == 'y' or nat_answer.lower() == 'yes':
+        clioutput("iptables --table nat --append POSTROUTING --source " + str(os.environ['LOCAL_LAN']) + " -j MASQUERADE")
+    elif nat_answer.lower() == 'n' or nat_answer.lower() == 'no':
+        return
+    else:
+        print("\n" + "Invalid entry: Please choose 'Y' or 'N'"+"\n")
+        nat()
 
 # Prints summary output
 def summary():
     print("\n Here is a summary of your configuration. This has also been emailed to " + str(os.environ['EMAIL']) + "\n")
 
     print("======================================================")
-    print("                  Phase 1 Proposal                    ")
+    print(" Phase 1 Proposal ")
     print("======================================================" + "\n")
     print("Local public IP: " + local_public_ip)
     print("Peer public IP: " + peer_public_ip)
-    print("Preshared Key: " + "\"" + psk + "\"" + "  <-- Please DO NOT include the end quotations in your preshared key" )
+    print("Preshared Key: " + "\"" + psk + "\"" + " <-- Please DO NOT include the end quotations in your preshared key" )
     print("Encryption: " + encryption_algorithm + ", " + hash_algorithm + ", " + "dhgroup " + dh_group + "\n")
 
     print("======================================================")
-    print("                  Phase 2 Proposal                    ")
+    print(" Phase 2 Proposal ")
     print("======================================================")
     print("Local Private LAN: " + local_sub)
     print("Remote Private LAN: " + remote_sub)
@@ -383,7 +435,7 @@ def summary():
     print("SA Lifetime: " + p2_lifetime + "\n")
 
     print("======================================================")
-    print("                  BGP Configuration                   ")
+    print(" BGP Configuration ")
     print("======================================================")
     print("Remote Tunnel IP: " + remote_tunnel_ip)
     print("Local Tunnel IP: " + local_tunnel_ip)
@@ -393,22 +445,22 @@ def summary():
 # Sends email via SNS
 def send_email(): # Sends an email with config parameters to the email that the customer specified
     os.system("echo ============================== >> message.json")
-    os.system("echo '                 Phase 1 Proposal ' >> message.json")
+    os.system("echo ' Phase 1 Proposal ' >> message.json")
     os.system("echo ============================== >> message.json")
     os.system("echo Local Public IP: " + peer_public_ip + " >> message.json")
     os.system("echo Peer Public IP: " + local_public_ip + " >> message.json")
     os.system("echo 'Preshared Key: " + "\"" + str(
-        psk) + "\"" + "  <-- Please *DO NOT* include the *END* quotations in your preshared key' >> message.json")
+        psk) + "\"" + " <-- Please *DO NOT* include the *END* quotations in your preshared key' >> message.json")
     os.system("echo Encryption: " + encryption_algorithm + ", " + hash_algorithm + ", " + "dhgroup " + dh_group + " >> message.json")
     os.system("echo ============================== >> message.json")
-    os.system("echo '                 Phase 2 Proposal ' >> message.json")
+    os.system("echo ' Phase 2 Proposal ' >> message.json")
     os.system("echo ============================== >> message.json")
     os.system("echo Local Private LAN: " + remote_sub + " >> message.json")
     os.system("echo Remote Private LAN: " + local_sub + " >> message.json")
     os.system("echo Encryption: pfs group " + pfs_group + ", " + p2_enc_alg + " >> message.json")
     os.system("echo SA lifetime: " + p2_lifetime + " >> message.json")
     os.system("echo ============================== >> message.json")
-    os.system("echo '                 BGP Configuration ' >> message.json")
+    os.system("echo ' BGP Configuration ' >> message.json")
     os.system("echo ============================== >> message.json")
     os.system("echo Remote Tunnel IP: " + local_tunnel_ip + " >> message.json")
     os.system("echo Local Tunnel IP: " + remote_tunnel_ip + " >> message.json")
@@ -448,7 +500,7 @@ net.ipv4.ip_forward=1
     eth0template = """# The primary network interface
 auto eth0
 iface eth0 inet dhcp
-    post-up ip a a """ + local_tunnel_ip + " dev eth0"
+post-up ip a a """ + local_tunnel_ip + " dev eth0"
 
     bgpdtemplate = """
 hostname ec2-vpn
@@ -478,56 +530,56 @@ flush;
 spdflush;
 
 spdadd <LOCAL TUNNEL IP> <REMOTE TUNNEL IP> any -P out ipsec
-   esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
+esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
 
 spdadd <REMOTE TUNNEL IP> <LOCAL TUNNEL IP> any -P in ipsec
-   esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
+esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
 
 spdadd <LOCAL TUNNEL IP> <REMOTE SUB> any -P out ipsec
-   esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
+esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
 
 spdadd <REMOTE SUB> <LOCAL TUNNEL IP> any -P in ipsec
-   esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
+esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
 
 spdadd <LOCAL SUB> <REMOTE SUB> any -P out ipsec
-   esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
+esp/tunnel/<LOCAL PRIVATE IP>-<PEER PUBLIC IP>/require;
 
 spdadd <REMOTE SUB> <LOCAL SUB> any -P in ipsec
-   esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
+esp/tunnel/<PEER PUBLIC IP>-<LOCAL PRIVATE IP>/require;
 """
 
     psktemplate = """# IPv4/v6 addresses
 
-<PEER PUBLIC IP>    <PSK>
-    """
+<PEER PUBLIC IP> <PSK>
+"""
 
     racoontemplate = """log notify;
 path pre_shared_key "/etc/racoon/psk.txt";
 path certificate "/etc/racoon/certs";
 
 remote <PEER PUBLIC IP> {
-        my_identifier address <LOCAL PUBLIC IP>;
-        exchange_mode main;
-        nat_traversal off;
-        lifetime time 28800 seconds;
-        generate_policy unique;
-        proposal {
-                encryption_algorithm <ENCRYPTION ALGORITHM>;
-                hash_algorithm <HASH ALGORITHM>;
-                authentication_method pre_shared_key;
-                dh_group <DH GROUP>;
-        }
+my_identifier address <LOCAL PUBLIC IP>;
+exchange_mode main;
+nat_traversal off;
+lifetime time 28800 seconds;
+generate_policy unique;
+proposal {
+encryption_algorithm <ENCRYPTION ALGORITHM>;
+hash_algorithm <HASH ALGORITHM>;
+authentication_method pre_shared_key;
+dh_group <DH GROUP>;
+}
 
 }
 
 sainfo address <LOCAL TUNNEL IP> any address <REMOTE TUNNEL IP> any {
-    pfs_group <PFS GROUP>;
-    lifetime time <P2 LIFETIME> seconds;
-    encryption_algorithm <P2 ENC ALG>;
-    authentication_algorithm hmac_sha1;
-    compression_algorithm deflate;
+pfs_group <PFS GROUP>;
+lifetime time <P2 LIFETIME> seconds;
+encryption_algorithm <P2 ENC ALG>;
+authentication_algorithm hmac_sha1;
+compression_algorithm deflate;
 }
-    """
+"""
 
     zebratemplate = """hostname ec2-zvpn
 password testPassword
@@ -538,7 +590,7 @@ interface eth0
 interface lo
 !
 line vty
-    """
+"""
 
     daemonstemplate="""zebra=yes
 bgpd=yes
@@ -548,7 +600,7 @@ ripd=no
 ripngd=no
 isisd=no
 babeld=no
-    """
+"""
 
 #Modifies sytem files and permissions
 def modifysysfiles():
@@ -575,12 +627,16 @@ def modifysysfiles():
     findandreplace("/etc/sysctl.conf", {}, sysctltemplate)
 
     #chmod for required files
-    os.system("chmod 600 /etc/racoon/psk.txt")
-    os.system("chmod 600 /etc/racoon/racoon.conf")
+    clioutput("chmod 600 /etc/racoon/psk.txt")
+    clioutput("chmod 600 /etc/racoon/racoon.conf")
 
-    #add ip address and import config from sysctl.conf
-    os.system("ip a a " + local_tunnel_ip + " dev eth0")
-    os.system("sudo sysctl -p")
+    #add ip address, import config from sysctl.conf, add programs to boot on restart
+    clioutput("ip a a " + local_tunnel_ip + " dev eth0")
+    clioutput("sudo sysctl -p")
+    clioutput("sudo update-rc.d quagga defaults")
+    clioutput("sudo update-rc.d setkey defaults")
+    clioutput("sudo update-rc.d racoon defaults")
+
 
 #Variable Declaration
 local_private_ip = str(os.popen("""/sbin/ifconfig eth0|grep inet|awk {'print $2'}|cut -d":" -f2""").read()).strip()
@@ -588,24 +644,29 @@ local_public_ip = str(os.popen("curl -s http://169.254.169.254/latest/meta-data/
 local_sub = str(os.environ['LOCAL_LAN'])
 remote_sub = str(os.environ['REMOTE_LAN'])
 
+
 #Initial Welcome Text
 print("================================================================================")
 print(
-    textwrap.fill("Thank you for using ZPN. This interface will take you through the process of setting an IPSEC VPN connection from this server to your remote peer.",80))
+    textwrap.fill("Thank you for using CloudFort. This interface will take you through the process of setting an IPSEC VPN connection from this server to your remote peer.",80))
 print("================================================================================")
 
 #Calling functions
+print("\n")
+subscription()
 peers_public()
 print("\n")
 peer_tunnel()
 print("\n")
-peers_as()
-print("\n")
 local_as()
+print("\n")
+peers_as()
 print("\n")
 preshared_keys()
 print("\n")
 phase_one_prop()
+print("\n")
+nat()
 print("\n")
 templatecreate()
 
@@ -615,14 +676,14 @@ region = str(os.popen("ec2-metadata -z | grep -Po '(us|sa|eu|ap)-(north|south)?(
 print("\n\nFinishing up. This may take a few minutes...")
 
 # Security Group commands
-subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 51 --cidr " + str(peer_public_ip) + "/32  --region " + region, shell=True, stdout=subprocess.PIPE,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
-subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr " + str(peer_public_ip) + "/32  --region " + region, shell=True, stdout=subprocess.PIPE,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
-subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr " + str(peer_public_ip) + "/32 --region " + region, shell=True, stdout=subprocess.PIPE,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
-subprocess.Popen("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr " + str(peer_public_ip) + "/32 --region " + region, shell=True, stdout=subprocess.PIPE,stdin=subprocess.PIPE,stderr=subprocess.PIPE)
+clioutput("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 51 --cidr " + str(peer_public_ip) + "/32 --region " + region)
+clioutput("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol 50 --cidr " + str(peer_public_ip) + "/32 --region " + region)
+clioutput("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 500 --cidr " + str(peer_public_ip) + "/32 --region " + region)
+clioutput("aws ec2 authorize-security-group-ingress --group-id " + sg_id + " --protocol udp --port 4500 --cidr " + str(peer_public_ip) + "/32 --region " + region)
 
 #Sends email
 send_email()
-os.system("clear")
+# os.system("clear") <---may want to uncomment this later
 
 #Modify tunnel IPs to include subnets
 local_tunnel_ip = local_tunnel_ip + "/30"
@@ -636,15 +697,15 @@ except:
     sys.exit(1)
 
 #stop/start required services
-os.system("service racoon stop")
+clioutput("service racoon stop")
 time.sleep(1)
-os.system("service quagga restart")
+clioutput("service quagga restart")
 time.sleep(2)
-os.system("service setkey restart")
+clioutput("service setkey restart")
+clioutput("service racoon start")
 time.sleep(1)
-os.system("service racoon start")
-time.sleep(1)
-os.system("racoonctl vpn-connect " + peer_public_ip)
+clioutput("racoonctl vpn-connect " + peer_public_ip)
 
-#Summarize
+#Summarize Changes
+os.system("clear")
 summary()
